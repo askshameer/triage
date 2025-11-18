@@ -1,0 +1,25 @@
+{
+  "name": "triage-tool",
+  "version": "1.0.0",
+  "description": "Platform Issue Triage Tool - Web Application",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "heroku-postbuild": "npm run build",
+    "start": "gunicorn app:app"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/triage-tool.git"
+  },
+  "keywords": [
+    "log-analysis",
+    "triage",
+    "error-detection"
+  ],
+  "author": "Your Name",
+  "license": "UNLICENSED"
+}
