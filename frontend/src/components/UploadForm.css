@@ -106,6 +106,19 @@
   user-select: none;
 }
 
+.checkbox-label.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkbox-label.disabled input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
+.checkbox-label.disabled span {
+  color: #999;
+}
+
 .help-text {
   margin-top: 0.5rem;
   font-size: 0.875rem;

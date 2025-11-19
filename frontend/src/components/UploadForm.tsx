@@ -178,6 +178,17 @@ const UploadForm: React.FC<UploadFormProps> = ({
             </label>
           </div>
 
+          <div className="form-group">
+            <label className="checkbox-label disabled">
+              <input
+                type="checkbox"
+                disabled
+                checked={false}
+              />
+              <span>Auto-Triage (Agentic AI)</span>
+            </label>
+          </div>
+
           {!useDefaultExcel && (
             <div className="form-group">
               <label htmlFor="excelfile-input">
