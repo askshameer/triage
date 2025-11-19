@@ -85,6 +85,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        withCredentials: true,
       });
 
       onTriageComplete(response.data);

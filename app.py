@@ -4,9 +4,11 @@ Web API for Platform Issue Triage Tool
 Provides REST API endpoints for the triage functionality.
 """
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash, generate_password_hash
+from functools import wraps
 import os
 import tempfile
 import pandas as pd
@@ -14,9 +16,12 @@ from pathlib import Path
 from triage_tool import TriageTool
 
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
-CORS(app)  # Enable CORS for frontend communication
+CORS(app, supports_credentials=True)  # Enable CORS with credentials
 
 # Configuration
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production-123456789')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 UPLOAD_FOLDER = tempfile.gettempdir()
 ALLOWED_LOG_EXTENSIONS = {'log', 'txt', 'out'}
 ALLOWED_EXCEL_EXTENSIONS = {'xlsx', 'xls'}
@@ -24,6 +29,21 @@ MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+
+# Hardcoded credentials (hashed)
+# Username: sameer, Password: He110
+USERS = {
+    'sameer': generate_password_hash('He110')
+}
+
+def login_required(f):
+    """Decorator to require login for routes."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            return jsonify({'error': 'Authentication required'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 def allowed_file(filename, allowed_extensions):
@@ -38,7 +58,58 @@ def health_check():
     return jsonify({'status': 'healthy', 'version': '1.0'})
 
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    """
+    Login endpoint.
+
+    Expected JSON data:
+    - username: Username
+    - password: Password
+    """
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+
+        if not username or not password:
+            return jsonify({'error': 'Username and password required'}), 400
+
+        # Check credentials
+        if username in USERS and check_password_hash(USERS[username], password):
+            session['username'] = username
+            return jsonify({
+                'success': True,
+                'message': 'Login successful',
+                'username': username
+            })
+        else:
+            return jsonify({'error': 'Invalid username or password'}), 401
+
+    except Exception as e:
+        return jsonify({'error': f'Login error: {str(e)}'}), 500
+
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    """Logout endpoint."""
+    session.pop('username', None)
+    return jsonify({'success': True, 'message': 'Logged out successfully'})
+
+
+@app.route('/api/check-auth', methods=['GET'])
+def check_auth():
+    """Check if user is authenticated."""
+    if 'username' in session:
+        return jsonify({
+            'authenticated': True,
+            'username': session['username']
+        })
+    return jsonify({'authenticated': False}), 401
+
+
 @app.route('/api/triage', methods=['POST'])
+@login_required
 def perform_triage():
     """
     Perform triage on uploaded log file.
@@ -137,6 +208,7 @@ def perform_triage():
 
 
 @app.route('/api/validate-excel', methods=['POST'])
+@login_required
 def validate_excel():
     """
     Validate Excel file and return error mapping count.

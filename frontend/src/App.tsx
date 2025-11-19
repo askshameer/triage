@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import Login from './components/Login';
 import UploadForm from './components/UploadForm';
 import ResultsDisplay from './components/ResultsDisplay';
 import './App.css';
@@ -18,9 +20,54 @@ export interface TriageResponse {
 }
 
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
   const [results, setResults] = useState<TriageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const response = await axios.get('/api/check-auth', {
+        withCredentials: true
+      });
+      if (response.data.authenticated) {
+        setIsAuthenticated(true);
+        setUsername(response.data.username);
+      }
+    } catch (err) {
+      // Not authenticated, stay on login page
+      setIsAuthenticated(false);
+    } finally {
+      setAuthChecking(false);
+    }
+  };
+
+  const handleLoginSuccess = (user: string) => {
+    setIsAuthenticated(true);
+    setUsername(user);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post('/api/logout', {}, {
+        withCredentials: true
+      });
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setIsAuthenticated(false);
+      setUsername(null);
+      setResults(null);
+      setError(null);
+    }
+  };
 
   const handleTriageComplete = (data: TriageResponse) => {
     setResults(data);
@@ -28,8 +75,15 @@ const App: React.FC = () => {
   };
 
   const handleError = (errorMessage: string) => {
-    setError(errorMessage);
-    setResults(null);
+    // Check if it's an authentication error
+    if (errorMessage.includes('Authentication required') || errorMessage.includes('401')) {
+      setIsAuthenticated(false);
+      setUsername(null);
+      setError('Session expired. Please log in again.');
+    } else {
+      setError(errorMessage);
+      setResults(null);
+    }
   };
 
   const handleReset = () => {
@@ -37,11 +91,39 @@ const App: React.FC = () => {
     setError(null);
   };
 
+  // Show loading while checking auth
+  if (authChecking) {
+    return (
+      <div className="App">
+        <div className="loading">
+          <div className="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Show main app if authenticated
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Defect Analysis & Triaging Tool</h1>
-        <p>Upload your log file and analyze known errors</p>
+        <div className="header-content">
+          <div>
+            <h1>Defect Analysis & Triaging Tool</h1>
+            <p>Upload your log file and analyze known errors</p>
+          </div>
+          <div className="header-user">
+            <span className="welcome-text">Welcome, {username}</span>
+            <button onClick={handleLogout} className="logout-button">
+              Logout
+            </button>
+          </div>
+        </div>
       </header>
 
       <main className="App-main">
